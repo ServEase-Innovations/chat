@@ -1,6 +1,7 @@
 {
   "name": "chat-app",
   "version": "1.0.0",
+  "packageManager": "npm@10.8.2",
   "description": "",
   "main": "server.js",
   "scripts": {

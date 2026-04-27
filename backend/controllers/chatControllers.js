@@ -59,6 +59,24 @@ const fetchChats = asyncHandler(async (req, res) => {
     .populate("latestMessage")
     .sort({ updatedAt: -1 });
 
+  // Inbox order: most recent activity first. Prefer last message time (defense if updatedAt
+  // was not maintained on older data).
+  results.sort((a, b) => {
+    const tA = (() => {
+      if (a.latestMessage && a.latestMessage.createdAt) {
+        return new Date(a.latestMessage.createdAt).getTime();
+      }
+      return a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    })();
+    const tB = (() => {
+      if (b.latestMessage && b.latestMessage.createdAt) {
+        return new Date(b.latestMessage.createdAt).getTime();
+      }
+      return b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    })();
+    return tB - tA;
+  });
+
   res.status(200).json(results);
 });
 

@@ -1,6 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
+# Prefer npm + package-lock; avoid committing yarn.lock (CI e.g. Render may run yarn --frozen-lockfile and fail if stale)
+yarn.lock
 /node_modules
 /.pnp
 .pnp.js

@@ -45,7 +45,14 @@ const sendMessage = asyncHandler(async (req, res) => {
       select: "name pic email",
     });
 
-    await Chat.findByIdAndUpdate(req.body.chatId, { latestMessage: message._id });
+    // Move thread to "top" of admin inbox: Mongoose 5 findByIdAndUpdate does not bump
+    // timestamps by default, so we must set updatedAt or sort by updatedAt stays stale.
+    const msgCreated =
+      message.createdAt != null ? new Date(message.createdAt) : new Date();
+    await Chat.findByIdAndUpdate(
+      req.body.chatId,
+      { latestMessage: message._id, updatedAt: msgCreated }
+    );
 
     const adminMongoId = String(process.env.ADMIN_MONGO_ID || "698ace8b8ea84c91bdc93678");
     const senderIdStr = String(
