@@ -99,5 +99,40 @@ const findOrCreateUser = asyncHandler(async (req, res) => {
   res.status(200).json(user);
 });
 
+const { isUserOnline } = require("../presenceStore");
 
-module.exports = { allUsers, registerUser, authUser , findOrCreateUser };
+/** Search users by name/email for the admin support console (not JWT — validated by known admin id). */
+const searchUsersForAdmin = asyncHandler(async (req, res) => {
+  const adminId = String(req.query.adminId || "");
+  const match = String(process.env.ADMIN_MONGO_ID || "698ace8b8ea84c91bdc93678");
+  if (!adminId || adminId !== match) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  const q = (req.query.search && String(req.query.search).trim()) || "";
+  const keyword = q
+    ? {
+        $or: [
+          { name: { $regex: q, $options: "i" } },
+          { email: { $regex: q, $options: "i" } },
+        ],
+      }
+    : {};
+
+  const users = await User.find(keyword).select("-password").sort({ name: 1 }).limit(30);
+  res.json(
+    users.map((u) => {
+      const o = u.toObject();
+      o.isOnline = isUserOnline(u._id);
+      return o;
+    })
+  );
+});
+
+module.exports = {
+  allUsers,
+  registerUser,
+  authUser,
+  findOrCreateUser,
+  searchUsersForAdmin,
+};
