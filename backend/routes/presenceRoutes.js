@@ -11,7 +11,8 @@ router.get("/online-ids", async (req, res) => {
     return res.status(403).json({ message: "Forbidden" });
   }
   try {
-    const onlineIds = getOnlineUserIds();
+    const adminId = String(req.query.adminId || "");
+    const onlineIds = getOnlineUserIds().filter((id) => String(id) !== adminId);
     const users = await User.find({ _id: { $in: onlineIds } })
       .select("name")
       .lean();
