@@ -15,6 +15,13 @@ const presenceRoutes = require("./routes/presenceRoutes");
 const { setIO } = require("./socketInstance");
 const { addSocketForUser, removeSocket, getOnlineUserIds } = require("./presenceStore");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
+const requestMetrics = require("./middleware/requestMetrics");
+const {
+  getMetrics,
+  metricsContentType,
+  socketIoConnectionsTotal,
+  socketIoDisconnectsTotal,
+} = require("./monitoring/prometheus");
 const path = require("path");
 
 dotenv.config();
@@ -60,6 +67,15 @@ app.get("/ready", (_req, res) => {
     status: ready ? "ready" : "not_ready",
     service: "chat",
   });
+});
+
+app.get("/metrics", async (_req, res, next) => {
+  try {
+    res.set("Content-Type", metricsContentType);
+    res.end(await getMetrics());
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.use((req, res, next) => {
@@ -117,6 +133,7 @@ const broadcastPresence = () => {
 };
 
 io.on("connection", (socket) => {
+  socketIoConnectionsTotal.inc();
   console.log("Socket connected", socket.id);
 
   /**
@@ -160,6 +177,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+    socketIoDisconnectsTotal.inc();
     removeSocket(socket.id);
     console.log("Socket disconnect", socket.id);
     broadcastPresence();
