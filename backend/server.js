@@ -1,7 +1,13 @@
 const express = require("express");
 const connectDB = require("./config/db");
 const dotenv = require("dotenv");
-const cors = require("cors"); // ✅ ADD THIS
+const cors = require("cors");
+const {
+  parseCorsOrigins,
+  corsOriginCallback,
+  getSocketIoCorsConfig,
+  assertCorsOriginsProduction,
+} = require("./lib/corsOrigins");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
@@ -12,18 +18,49 @@ const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const path = require("path");
 
 dotenv.config();
+
+if (process.env.NODE_ENV === "production") {
+  assertCorsOriginsProduction();
+}
+
 connectDB();
 const app = express();
+const allowedCorsOrigins = parseCorsOrigins();
 
-// ✅ ENABLE CORS FOR EXPRESS
 app.use(
   cors({
-    origin: "*",
+    origin: corsOriginCallback(allowedCorsOrigins),
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+    ],
     credentials: true,
+    optionsSuccessStatus: 204,
   })
 );
 
 app.use(express.json());
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "chat",
+    uptime: process.uptime(),
+  });
+});
+
+app.get("/ready", (_req, res) => {
+  const mongoose = require("mongoose");
+  const ready = mongoose.connection.readyState === 1;
+  res.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "not_ready",
+    service: "chat",
+  });
+});
 
 app.use((req, res, next) => {
   req.user = {
@@ -67,13 +104,9 @@ const server = app.listen(
   console.log(`Server running on PORT ${PORT}`)
 );
 
-// ✅ SOCKET CORS (already correct)
 const io = require("socket.io")(server, {
   pingTimeout: 60000,
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
+  cors: getSocketIoCorsConfig(),
 });
 
 setIO(io);
